@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Univox - Messagerie Publique</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Univox 💬</h1>
+    <p class="tagline">Connecte-toi au monde. Discute en temps réel.</p>
+
+    <!-- Section d'inscription -->
+    <form id="registerForm">
+      <h2>Créer un compte</h2>
+      <input type="text" placeholder="Nom d'utilisateur" id="regUsername" required />
+      <input type="email" placeholder="Adresse email" id="regEmail" required />
+      <input type="password" placeholder="Mot de passe" id="regPassword" required />
+      <input type="file" id="regAvatar" accept="image/*" />
+      <button type="submit">S'inscrire</button>
+    </form>
+
+    <!-- Section de connexion -->
+    <form id="loginForm">
+      <h2>Connexion</h2>
+      <input type="email" placeholder="Email" id="loginEmail" required />
+      <input type="password" placeholder="Mot de passe" id="loginPassword" required />
+      <button type="submit">Se connecter</button>
+    </form>
+
+    <!-- Interface de messagerie -->
+    <div id="chatInterface" style="display: none;">
+      <div class="chat-header">💬 Groupe Public – Tous connectés</div>
+      <div id="usersOnline">Utilisateurs en ligne : 0</div>
+      <div id="chatBox"></div>
+      <div class="chat-input">
+        <input type="text" id="messageInput" placeholder="Écris ton message..." />
+        <button id="sendMessage">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
