@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Univox – Discussion</title>
+  <link rel="stylesheet" href="chat-style.css"/>
+</head>
+<body>
+  <div class="container">
+    <div class="chat-header">
+      <a href="chat.html" class="back-btn">←</a>
+      <span id="friendName"></span>
+    </div>
+    <div class="messages" id="messagesList"></div>
+    <div class="chat-input">
+      <input id="messageInput" placeholder="Écris un message…"/>
+      <button id="sendBtn">Envoyer</button>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
