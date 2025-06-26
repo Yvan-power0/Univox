@@ -1,79 +1,82 @@
-const express = require("express");
-const router = express.Router();
-const User = require("../models/User");
-const jwt = require("jsonwebtoken");
+const router     = require("express").Router();
+const multer     = require("multer");
+const bcrypt     = require("bcrypt");
+const jwt        = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-const bcrypt = require("bcrypt");
+const crypto     = require("crypto");
+const User       = require("../models/User");
+const Token      = require("../models/Token");
 
-// Transporteur pour envoyer les e-mails
+// Multer pour avatars
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "public/images/"),
+  filename:    (req, file, cb) => cb(null, Date.now() + "_" + file.originalname)
+});
+const upload = multer({ storage });
+
+// Nodemailer
 const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+  auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS }
 });
 
 // Inscription
-router.post("/register", async (req, res) => {
-  const { username, email, password } = req.body;
+router.post("/register", upload.single("avatar"), async (req, res) => {
   try {
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: "Email déjà utilisé" });
+    const { username, email, password } = req.body;
+    if (await User.findOne({ email }))
+      return res.status(400).json({ error: "Email déjà utilisé." });
 
-    const hashed = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashed });
+    const hash = await bcrypt.hash(password, 10);
+    const avatarUrl = req.file ? `/images/${req.file.filename}` : "";
+    const user = await User.create({ username, email, password: hash, avatar: avatarUrl });
 
-    // Générer un token pour l'e-mail de vérification
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    // Token de vérif.
+    const token = crypto.randomBytes(32).toString("hex");
+    await Token.create({ userId: user._id, token });
 
-    // Envoi du mail
-    const link = `https://ton-domaine.com/verify-email/${token}`; // à remplacer plus tard
-
+    const url = `${process.env.APP_URL}/api/auth/verify/${token}`;
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Univox - Vérifie ton adresse",
-      html: `<h3>Bienvenue sur Univox 🎉</h3>
-             <p>Merci de créer un compte. Clique ci-dessous pour activer ton profil :</p>
-             <a href="${link}">Activer mon compte</a>`
+      to: user.email,
+      subject: "Vérifiez votre compte Univox",
+      html: `Cliquez <a href="${url}">ici</a> pour vérifier votre email.`
     });
 
-    await user.save();
-    res.status(201).json({ message: "Utilisateur enregistré. Vérifie ton e-mail." });
+    res.json({ message: "Inscription réussie ! Vérifiez votre email." });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Vérification du compte
-router.get("/verify-email/:token", async (req, res) => {
+// Vérification email
+router.get("/verify/:token", async (req, res) => {
   try {
-    const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(400).send("Utilisateur introuvable");
+    const tokenDoc = await Token.findOne({ token: req.params.token });
+    if (!tokenDoc) return res.status(400).send("Token invalide ou expiré.");
 
-    user.verified = true;
-    await user.save();
-
-    res.send("✅ Ton compte Univox est maintenant vérifié !");
+    await User.findByIdAndUpdate(tokenDoc.userId, { verified: true });
+    await Token.deleteOne({ _id: tokenDoc._id });
+    res.send("Email vérifié ! Vous pouvez vous connecter.");
   } catch (err) {
-    res.status(400).send("Lien invalide ou expiré");
+    res.status(500).send(err.message);
   }
 });
 
 // Connexion
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
   try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Compte introuvable" });
-    if (!user.verified) return res.status(403).json({ message: "Compte non vérifié" });
+    if (!user)        return res.status(400).json({ error: "Email inconnu." });
+    if (!user.verified) return res.status(400).json({ error: "Compte non vérifié." });
+    if (!await bcrypt.compare(password, user.password))
+                      return res.status(400).json({ error: "Mot de passe incorrect." });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Mot de passe incorrect" });
-
-    res.status(200).json({ message: "Connexion réussie", user: user.username });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({
+      user: { _id: user._id, username: user.username, avatar: user.avatar },
+      token
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
